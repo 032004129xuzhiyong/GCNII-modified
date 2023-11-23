@@ -117,10 +117,11 @@ if __name__ == '__main__':
         yaml_args = benedict.from_yaml(conf)
 
         # update parser args
-        expand_args = expand_args.flatten('*').filter(lambda k,v: v is not None).unflatten('*') # clean None
+        expand_args = tool.remove_dict_None_value(expand_args) # clean None
         yaml_args.deepupdate(expand_args)
 
         # update callbacks save path
         yaml_args['dfcallback_args.df_save_path'] = os.path.join('./tables/', tool.get_basename_split_ext(conf) + '.csv')
         yaml_args['tbwriter_args.log_dir'] = os.path.join('./logs/', tool.get_basename_split_ext(conf))
         yaml_args['earlystop_args.checkpoint_dir'] = os.path.join('./checkpoint/', tool.get_basename_split_ext(conf))
+        print(yaml_args['loss_weights']==None)

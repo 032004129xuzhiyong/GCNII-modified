@@ -54,7 +54,7 @@ weight_decay2: 5.0e-4
 #training
 device: cuda
 epochs: 1500
-loss_weights: None
+loss_weights: null
 dfcallback_args:
   df_save_path: ./tables/${model_class_args.class_name}.csv
 tbwriter_args:
@@ -65,6 +65,3 @@ earlystop_args:
   patience: 100
   restore_best_weights: True
   save_best_only: True
-
-
-
