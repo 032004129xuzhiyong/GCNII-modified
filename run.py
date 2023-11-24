@@ -232,13 +232,39 @@ def parser_args():
                         required=True,
                         help='yaml config paths. e.g. config/3sources.yaml',
                         dest='config_paths')
+    # tuner
+    parser.add_argument('--tuner-monitor','-tm',
+                        default=None,
+                        type=str,
+                        help='tuner monitor metrics. e.g. loss/val_loss/metric_acc/val_metric_acc',
+                        dest='tuner_monitor')
+    parser.add_argument('--tuner-n-trials','-tn',
+                        default=None,
+                        type=int,
+                        help='tuner n trials',
+                        dest='tuner_n_trials')
+    parser.add_argument('--tuner-n-repeats','-tr',
+                        default=None,
+                        type=int,
+                        help='tuner n repeats',
+                        dest='tuner_n_repeats')
+    parser.add_argument('--best-trial','-bt',
+                        default=None,
+                        type=int,
+                        help='best trial',
+                        dest='best_trial')
+    parser.add_argument('--best-trial-save-dir','-btsd',
+                        default=None,
+                        type=str,
+                        help='best trial save dir',
+                        dest='best_trial_save_dir')
     # dataset
     parser.add_argument('--topk',
                         default=None,
                         type=int,
                         help='knn topk',
                         dest='dataset_args.topk')
-    parser.add_argument('--train-ratio','-tr',
+    parser.add_argument('--train-ratio',
                         default=None,
                         type=float,
                         help='train val split ratio',
@@ -308,12 +334,12 @@ def parser_args():
                         default=False,
                         help='whether to show logs')
     # others
-    parser.add_argument('--train-times-with-no-tuner',
+    parser.add_argument('--train-times-with-no-tuner', '-ttnt',
                         default=1,
                         type=int,
                         help='训练实验次数，没有超参数搜索(默认有超参数搜索)',
                         dest='tt_nt')
-    parser.add_argument('--train-save-dir-with-no-tuner',
+    parser.add_argument('--train-save-dir-with-no-tuner', '-tsdnt',
                         default='temp_result/',
                         type=str,
                         help='训练实验数据保存目录，没有超参数搜索(默认有超参数搜索)',
