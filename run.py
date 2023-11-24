@@ -3,11 +3,21 @@
 作者：DELL
 日期：2023年11月23日
 """
-
+import copy
 import os
 import argparse
+import optuna
+import pandas as pd
+import numpy as np
+import torch.nn as nn
+import matplotlib.pyplot as plt
 from benedict import benedict
 from mytool import tool
+from mytool import mytorch as mtorch
+from mytool import metric as mmetric
+from mytool import plot as mplot
+from datasets.dataset import load_mat
+from typing import *
 
 
 def bind_boolind_for_fn(func, train_bool_ind, val_bool_ind):
@@ -22,9 +32,157 @@ def bind_boolind_for_fn(func, train_bool_ind, val_bool_ind):
     return binded_func
 
 
+def train_one_args(args, data=None):
+    # load data
+    if data is not None:
+        adjs, inputs, labels, train_bool, val_bool, n_view, n_node, n_feats, n_class = data
+    else:
+        adjs, inputs, labels, train_bool, val_bool, n_view, n_node, n_feats, n_class = load_mat(**args['dataset_args'])
+    dataload = [((inputs, adjs), labels)]
+
+    # build model
+    device = args['device']
+    if device == 'tpu':
+        import torch_xla.core.xla_model as xm
+        device = xm.xla_device()
+    ModelClass = tool.import_class(**args['model_class_args'])
+    model = ModelClass(n_feats=sum(n_feats), n_class=n_class, **args['model_args'])
+    wrapmodel = mtorch.WrapModel(model).to(device)
+
+    # loss optimizer lr_scheduler
+    loss_fn = nn.CrossEntropyLoss()
+    OptimizerClass = tool.import_class(**args['optimizer_class_args'])
+    optimizer = OptimizerClass([
+        dict(params=model.reg_params, weight_decay=args['weight_decay1']),
+        dict(params=model.non_reg_params, weight_decay=args['weight_decay2'])
+    ], **args['optimizer_args'])
+    # SchedulerClass = tool.import_class(**args['scheduler_class_args'])
+    # scheduler = SchedulerClass(optimizer,**args['scheduler_args'])
+    # # warp scheduler
+    # def sche_func(epoch, lr, epoch_logs):
+    #    scheduler.step(epoch_logs[args['scheduler_monitor']])
+    # scheduler_callback = mtorch.SchedulerWrapCallback(sche_func,True)
+
+    # training
+    wrapmodel.compile(loss=bind_boolind_for_fn(loss_fn, train_bool, val_bool),
+                  optimizer=optimizer,
+                  metric=[bind_boolind_for_fn(mmetric.acc, train_bool, val_bool),
+                     bind_boolind_for_fn(mmetric.f1, train_bool, val_bool),
+                     bind_boolind_for_fn(mmetric.precision,train_bool,val_bool),
+                     bind_boolind_for_fn(mmetric.recall,train_bool,val_bool)
+                     ])
+    history = wrapmodel.fit(dataload, epochs=args['epochs'],
+              device=device,
+              val_dataload=dataload,
+              callbacks=[
+                  mtorch.DfSaveCallback(**args['dfcallback_args']),
+                  mtorch.EarlyStoppingCallback(quiet=args['quiet'],**args['earlystop_args']),
+                  mtorch.TunerRemovePreFileInDir([
+                      args['earlystop_args']['checkpoint_dir'],
+                  ],10,0.8),
+                  #scheduler_callback,
+                  mtorch.PruningCallback(args['trial'],args['tuner_monitor']),
+              ],
+              quiet=args['quiet'])
+
+    return history.history
 
 
-if __name__ == '__main__':
+def train_with_besthp_and_save_config_and_history(best_conf):
+    """
+    保存两个数据： 最优配置(存储为yaml文件) 和  多次实验的过程数据(pd.DataFrame数据格式存储为多个csv文件)
+    :param best_conf: dict
+    :return:
+        None
+    """
+    # flag tuner
+    yaml_args['tuner_flag'] = False
+
+    best_dir = best_conf['best_trial_save_dir']
+    dataset_name = tool.get_basename_split_ext(best_conf['dfcallback_args']['df_save_path'])
+    best_dataset_dir = os.path.join(best_dir, dataset_name)
+    if not os.path.exists(best_dataset_dir):
+        os.makedirs(best_dataset_dir)
+
+    # Load data outside the scope of repeated experiments
+    data = load_mat(**best_conf['dataset_args'])
+
+    for tri_idx in range(best_conf['best_trial']):
+        tri_logs = train_one_args(best_conf,data)
+        df = pd.DataFrame(tri_logs)
+        #csv
+        df_save_path = os.path.join(best_dataset_dir, 'df' + str(tri_idx) + '.csv')
+        df.to_csv(df_save_path, index=False, header=True)
+    # {key1: [mean, std], key2: [mean, std]...}
+    mean_std_metric_dict = compute_mean_metric_in_bestdir_for_one_dataset(best_dataset_dir, if_plot_fig=True)
+    # {key1:{mean:float,std:float}, key2:{mean:float,std:float}...}
+    mean_std_metric_dict = {key: {'mean':mean_std_metric_dict[key][0],'std':mean_std_metric_dict[key][1]}
+                            for key in mean_std_metric_dict.keys()}
+    best_conf.update(mean_std_metric_dict)
+    save_conf_path = os.path.join(best_dataset_dir, 'conf.yaml')
+    tool.save_yaml_args(save_conf_path, best_conf)
+
+
+def compute_mean_metric_in_bestdir_for_one_dataset(one_dataset_dir, if_plot_fig=False):
+    """
+
+    Args:
+        one_dataset_dir: str
+        if_plot_fig: a plot every df
+
+    Returns:
+        mean_std_metric_dict: Dict {key1:[mean,std],key2:[mean,std]...}
+    """
+    filenames = os.listdir(one_dataset_dir)
+    filenames = [name for name in filenames if name.endswith('csv')]
+    filepaths = [os.path.join(one_dataset_dir, name) for name in filenames]
+
+    metric_list = mtorch.History() # {key1:[], key2:[]...}
+    for fp in filepaths:
+        df = pd.read_csv(fp)
+        df_col_names = df.columns
+        # png
+        if if_plot_fig:
+            fig = mplot.plot_LossMetricTimeLr_with_df(df)
+            fig.savefig(os.path.join(one_dataset_dir, tool.get_basename_split_ext(fp) + '.png'))
+            plt.close()  # 关闭figure
+            del fig
+        metric_dict = df.iloc[:,df_col_names.str.contains('metric')].max(axis=0).to_dict()
+        metric_list.update(metric_dict)
+    metric_list = metric_list.history
+    # {key1:[mean,std],key2:[mean,std]...}
+    mean_std_metric_dict = {key:[float(np.mean(metric_list[key])), float(np.std(metric_list[key]))]
+                            for key in metric_list.keys()}
+    return mean_std_metric_dict
+
+
+def compute_mean_metric_in_bestdir_for_all_dataset(best_dir):
+    """
+    计算best目录下所有数据集 mean_acc 和 std_acc
+    :param best_dir:
+    :return:
+        Dict[datasetname, (mean_acc, std_acc)]
+    """
+    dataset_names = os.listdir(best_dir)
+    dataset_dirs = [os.path.join(best_dir, dn) for dn in dataset_names]
+    dataset_mean_std = [compute_mean_metric_in_bestdir_for_one_dataset(ddir) for ddir in dataset_dirs]
+    return dict(zip(dataset_names, dataset_mean_std))
+
+
+def objective(trial: optuna.trial.Trial, extra_args):
+    args = copy.deepcopy(extra_args)
+    args = tool.modify_dict_with_trial(args, trial)
+    args['trial'] = trial
+    args['tuner_flag'] = True
+    # get history epoch
+    history = train_one_args(args)
+    if 'loss' in args['tuner_monitor']:
+        return min(history[args['tuner_monitor']])
+    else:  # metric
+        return max(history[args['tuner_monitor']])
+
+
+def parser_args():
     parser = argparse.ArgumentParser()
     # config
     parser.add_argument('--config-paths','-cps',
@@ -107,8 +265,22 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False,
                         help='whether to show logs')
+    # others
+    parser.add_argument('--train-times-with-no-tuner',
+                        default=1,
+                        type=int,
+                        help='训练实验次数，没有超参数搜索(默认有超参数搜索)',
+                        dest='tt_nt')
+    parser.add_argument('--train-save-dir-with-no-tuner',
+                        default='temp_result/',
+                        type=str,
+                        help='训练实验数据保存目录，没有超参数搜索(默认有超参数搜索)',
+                        dest='tsd_nt')
+    return parser.parse_args()
 
-    parser_args = vars(parser.parse_args())
+
+if __name__ == '__main__':
+    parser_args = vars(parser_args())
     expand_args = benedict()
     for k,v in parser_args.items():
         expand_args[k] = v
@@ -117,11 +289,55 @@ if __name__ == '__main__':
         yaml_args = benedict.from_yaml(conf)
 
         # update parser args
-        expand_args = tool.remove_dict_None_value(expand_args) # clean None
+        expand_args = tool.remove_dict_None_value(expand_args) # clean None value
         yaml_args.deepupdate(expand_args)
 
         # update callbacks save path
         yaml_args['dfcallback_args.df_save_path'] = os.path.join('./tables/', tool.get_basename_split_ext(conf) + '.csv')
         yaml_args['tbwriter_args.log_dir'] = os.path.join('./logs/', tool.get_basename_split_ext(conf))
         yaml_args['earlystop_args.checkpoint_dir'] = os.path.join('./checkpoint/', tool.get_basename_split_ext(conf))
-        print(yaml_args['loss_weights']==None)
+
+        # flag tuner
+        yaml_args['tuner_flag'] = False
+
+        args = yaml_args.dict()
+        if tool.has_hyperparameter(args):
+            # tuner
+            yaml_args['tuner_flag'] = True
+
+            if 'loss' in args['tuner_monitor']:
+                direction = 'minimize'
+            else:
+                direction = 'maximize'
+            study = optuna.create_study(direction=direction,
+                                        study_name=tool.get_basename_split_ext(conf),
+                                        storage=optuna.storages.RDBStorage('sqlite:///./tuner.db',
+                                                                           heartbeat_interval=60,
+                                                                           grace_period=120,
+                                                                           failed_trial_callback=optuna.storages.RetryFailedTrialCallback(3)),
+                                        load_if_exists=True,
+                                        pruner=optuna.pruners.MedianPruner(),
+                                        sampler=optuna.samplers.TPESampler())
+            study.optimize(lambda trial: objective(trial, args),
+                           n_trials=args['tuner_n_trials'],
+                           gc_after_trial=True,
+                           show_progress_bar=True)
+
+            # get best args
+            best_hp = study.best_params
+            # print
+            for i in range(5):
+                print('*' * 50)
+            tool.print_dicts_tablefmt([best_hp], ['Best HyperParameters!!'])
+            for i in range(5):
+                print('*' * 50)
+
+            # train times with best args
+            best_args = tool.modify_dict_with_trial(args, study.best_trial)
+            train_with_besthp_and_save_config_and_history(best_args)
+        else:
+            # only one config and train times
+            best_args = args
+            best_args['best_trial'] = parser_args['tt_nt']
+            best_args['best_trial_save_dir'] = parser_args['tsd_nt']
+            train_with_besthp_and_save_config_and_history(best_args)

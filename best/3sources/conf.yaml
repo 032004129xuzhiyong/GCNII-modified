@@ -1,0 +1,77 @@
+best_trial: 10
+best_trial_save_dir: best/
+config_paths:
+- config/3sources.yaml
+dataset_args:
+  mat_path: data/3sources.mat
+  topk: 10
+  train_ratio: 0.05
+device: cuda
+dfcallback_args:
+  df_save_path: ./tables/3sources.csv
+earlystop_args:
+  checkpoint_dir: ./checkpoint/3sources
+  monitor: val_metric_acc
+  patience: 100
+  restore_best_weights: true
+  save_best_only: true
+epochs: 1500
+loss_weights: null
+metric_acc:
+  mean: 1.0
+  std: 0.0
+metric_f1:
+  mean: 1.0
+  std: 0.0
+metric_precision:
+  mean: 1.0
+  std: 0.0
+metric_recall:
+  mean: 1.0
+  std: 0.0
+model_args:
+  alpha: 0.1
+  dropout: 0.5
+  hid_dim: 96
+  lamda: 0.5
+  layerclass: GCNIILayer
+  nlayer: 10
+model_class_args:
+  class_name: GCNII_model
+  module_path: models.model
+optimizer_args:
+  lr: 0.01
+optimizer_class_args:
+  class_name: Adam
+  module_path: torch.optim
+quiet: true
+scheduler_args:
+  factor: 0.3
+  min_lr: 1.0e-08
+  mode: min
+  patience: 10
+  verbose: false
+scheduler_class_args:
+  class_name: ReduceLROnPlateau
+  module_path: torch.optim.lr_scheduler
+scheduler_monitor: val_loss
+tbwriter_args:
+  log_dir: ./logs/3sources
+tsd_nt: temp_result/
+tt_nt: 1
+tuner_monitor: val_metric_acc
+tuner_n_trials: 30
+val_metric_acc:
+  mean: 0.74161491
+  std: 0.07480284142736036
+val_metric_f1:
+  mean: 0.6418421994950957
+  std: 0.060464063974064106
+val_metric_precision:
+  mean: 0.6996208387441853
+  std: 0.012709154921032789
+val_metric_recall:
+  mean: 0.6858935185185187
+  std: 0.05276046547063527
+weight_decay1: 0.01
+weight_decay2: 0.0005
