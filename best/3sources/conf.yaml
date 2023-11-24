@@ -59,19 +59,20 @@ tbwriter_args:
   log_dir: ./logs/3sources
 tsd_nt: temp_result/
 tt_nt: 1
+tuner_flag: false
 tuner_monitor: val_metric_acc
 tuner_n_trials: 30
 val_metric_acc:
-  mean: 0.74161491
-  std: 0.07480284142736036
+  mean: 0.677639747
+  std: 0.03418407175458159
 val_metric_f1:
-  mean: 0.6418421994950957
-  std: 0.060464063974064106
+  mean: 0.5100588907235439
+  std: 0.031857407679463386
 val_metric_precision:
-  mean: 0.6996208387441853
-  std: 0.012709154921032789
+  mean: 0.769779616891293
+  std: 0.055025117922071896
 val_metric_recall:
-  mean: 0.6858935185185187
-  std: 0.05276046547063527
+  mean: 0.5221083591331269
+  std: 0.03397709952890874
 weight_decay1: 0.01
 weight_decay2: 0.0005

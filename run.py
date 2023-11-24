@@ -40,7 +40,7 @@ def train_one_args(args, data=None):
         adjs, inputs, labels, train_bool, val_bool, n_view, n_node, n_feats, n_class = load_mat(**args['dataset_args'])
     dataload = [((inputs, adjs), labels)]
 
-    # build model
+    # build model and init callback_list
     device = args['device']
     if device == 'tpu':
         import torch_xla.core.xla_model as xm
@@ -76,18 +76,23 @@ def train_one_args(args, data=None):
             bind_boolind_for_fn(mmetric.recall,train_bool,val_bool),
         ]
     )
+
+    # add callbacks
+    callback_list.extend([
+        mtorch.DfSaveCallback(**args['dfcallback_args']),
+        mtorch.EarlyStoppingCallback(quiet=args['quiet'],**args['earlystop_args']),
+        mtorch.TunerRemovePreFileInDir([
+            args['earlystop_args']['checkpoint_dir'],
+        ],10,0.8),
+    ])
+
+    # fit
     history = wrapmodel.fit(
         dataload=dataload,
         epochs=args['epochs'],
         device=device,
         val_dataload=dataload,
-        callbacks=callback_list.extend([
-          mtorch.DfSaveCallback(**args['dfcallback_args']),
-          mtorch.EarlyStoppingCallback(quiet=args['quiet'],**args['earlystop_args']),
-          mtorch.TunerRemovePreFileInDir([
-              args['earlystop_args']['checkpoint_dir'],
-          ],10,0.8),
-        ]),
+        callbacks=callback_list,
         quiet=args['quiet']
     )
 
