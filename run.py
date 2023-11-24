@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from benedict import benedict
 from mytool import tool
 from mytool import mytorch as mtorch
+from mytool import callback as mcallback
 from mytool import metric as mmetric
 from mytool import plot as mplot
 from datasets.dataset import load_mat
@@ -48,7 +49,7 @@ def train_one_args(args, data=None):
     ModelClass = tool.import_class(**args['model_class_args'])
     model = ModelClass(n_feats=sum(n_feats), n_class=n_class, **args['model_args'])
     wrapmodel = mtorch.WrapModel(model).to(device)
-    callback_list: List[mtorch.Callback] = [mtorch.PruningCallback(args['trial'],args['tuner_monitor'])] if args['tuner_flag'] else []
+    callback_list: List[mcallback.Callback] = [mcallback.PruningCallback(args['trial'],args['tuner_monitor'])] if args['tuner_flag'] else []
 
     # loss optimizer lr_scheduler
     loss_fn = nn.CrossEntropyLoss()
@@ -62,7 +63,7 @@ def train_one_args(args, data=None):
     # # warp scheduler
     # def sche_func(epoch, lr, epoch_logs):
     #    scheduler.step(epoch_logs[args['scheduler_monitor']])
-    # scheduler_callback = mtorch.SchedulerWrapCallback(sche_func,True)
+    # scheduler_callback = mcallback.SchedulerWrapCallback(sche_func,True)
     # callback_list.append(scheduler_callback)
 
     # training
@@ -79,9 +80,9 @@ def train_one_args(args, data=None):
 
     # add callbacks
     callback_list.extend([
-        mtorch.DfSaveCallback(**args['dfcallback_args']),
-        mtorch.EarlyStoppingCallback(quiet=args['quiet'],**args['earlystop_args']),
-        mtorch.TunerRemovePreFileInDir([
+        mcallback.DfSaveCallback(**args['dfcallback_args']),
+        mcallback.EarlyStoppingCallback(quiet=args['quiet'],**args['earlystop_args']),
+        mcallback.TunerRemovePreFileInDir([
             args['earlystop_args']['checkpoint_dir'],
         ],10,0.8),
     ])
@@ -327,12 +328,13 @@ if __name__ == '__main__':
                                                                            grace_period=120,
                                                                            failed_trial_callback=optuna.storages.RetryFailedTrialCallback(3)),
                                         load_if_exists=True,
-                                        pruner=optuna.pruners.MedianPruner(),
+                                        pruner=optuna.pruners.MedianPruner(n_warmup_steps=30),
                                         sampler=optuna.samplers.TPESampler())
             study.optimize(lambda trial: objective(trial, args),
                            n_trials=args['tuner_n_trials'],
                            gc_after_trial=True,
-                           show_progress_bar=True)
+                           show_progress_bar=True,
+                           callbacks=[mcallback.StudyStopWhenTrialKeepBeingPrunedCallback(20)])
 
             # get best args
             best_hp = study.best_params

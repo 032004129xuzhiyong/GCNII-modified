@@ -32,10 +32,10 @@ metric_recall:
 model_args:
   alpha: 0.1
   dropout: 0.5
-  hid_dim: 96
+  hid_dim: 88
   lamda: 0.5
   layerclass: GCNIILayer
-  nlayer: 10
+  nlayer: 6
 model_class_args:
   class_name: GCNII_model
   module_path: models.model
@@ -60,19 +60,19 @@ tbwriter_args:
 tsd_nt: temp_result/
 tt_nt: 1
 tuner_flag: false
-tuner_monitor: val_metric_acc
-tuner_n_trials: 30
+tuner_monitor: val_metric_f1
+tuner_n_trials: 250
 val_metric_acc:
-  mean: 0.677639747
-  std: 0.03418407175458159
+  mean: 0.7666666599999999
+  std: 0.02075471090910207
 val_metric_f1:
-  mean: 0.5100588907235439
-  std: 0.031857407679463386
+  mean: 0.6178410954173329
+  std: 0.016799548178242266
 val_metric_precision:
-  mean: 0.769779616891293
-  std: 0.055025117922071896
+  mean: 0.6983406583318225
+  std: 0.02017995962365087
 val_metric_recall:
-  mean: 0.5221083591331269
-  std: 0.03397709952890874
+  mean: 0.6523842012438503
+  std: 0.016355010359053904
 weight_decay1: 0.01
 weight_decay2: 0.0005
