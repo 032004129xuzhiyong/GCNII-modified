@@ -17,6 +17,7 @@ from mytool import mytorch as mtorch
 from mytool import callback as mcallback
 from mytool import metric as mmetric
 from mytool import plot as mplot
+from mytool import tuner as mtuner
 from datasets.dataset import load_mat
 from typing import *
 
@@ -58,13 +59,13 @@ def train_one_args(args, data=None):
         dict(params=model.reg_params, weight_decay=args['weight_decay1']),
         dict(params=model.non_reg_params, weight_decay=args['weight_decay2'])
     ], **args['optimizer_args'])
-    # SchedulerClass = tool.import_class(**args['scheduler_class_args'])
-    # scheduler = SchedulerClass(optimizer,**args['scheduler_args'])
-    # # warp scheduler
-    # def sche_func(epoch, lr, epoch_logs):
-    #    scheduler.step(epoch_logs[args['scheduler_monitor']])
-    # scheduler_callback = mcallback.SchedulerWrapCallback(sche_func,True)
-    # callback_list.append(scheduler_callback)
+    SchedulerClass = tool.import_class(**args['scheduler_class_args'])
+    scheduler = SchedulerClass(optimizer,**args['scheduler_args'])
+    # warp scheduler
+    def sche_func(epoch, lr, epoch_logs):
+       scheduler.step(epoch_logs[args['scheduler_monitor']])
+    scheduler_callback = mcallback.SchedulerWrapCallback(sche_func,True)
+    callback_list.append(scheduler_callback)
 
     # training
     wrapmodel.compile(
@@ -328,7 +329,10 @@ if __name__ == '__main__':
                                                                            grace_period=120,
                                                                            failed_trial_callback=optuna.storages.RetryFailedTrialCallback(3)),
                                         load_if_exists=True,
-                                        pruner=optuna.pruners.MedianPruner(n_warmup_steps=30),
+                                        pruner=mtuner.CombinePruner([
+                                            optuna.pruners.MedianPruner(n_warmup_steps=30),
+                                            optuna.pruners.PercentilePruner(0.1,n_warmup_steps=30)
+                                        ]),
                                         sampler=optuna.samplers.TPESampler())
             study.optimize(lambda trial: objective(trial, args),
                            n_trials=args['tuner_n_trials'],

@@ -1,0 +1,72 @@
+#tuner
+tuner_monitor: val_metric_f1 #调优监控指标
+tuner_n_trials: 250 #调优次数
+best_trial: 10 #获得最优超参数后，使用超参数执行几次来获得实验数据
+best_trial_save_dir: best/ #最优超参数实验数据存储目录
+
+#data
+dataset_args:
+  mat_path: data/NGs.mat                   #
+  topk:  #knn前几个节点
+    type: int
+    low: 6
+    high: 100
+    log: True
+  train_ratio: 0.1 #训练集标记率
+
+#model
+model_class_args:
+  module_path: models.model
+  class_name: GCNII_model
+model_args: #模型参数                            #
+  nlayer:
+    type: int
+    low: 2
+    high: 64
+    step: 2
+  hid_dim:
+    type: int
+    low: 16
+    high: 128
+    step: 8
+  alpha: 0.1 #h0
+  lamda: 0.5 #每层的beta为lamda/l(第几层)
+  dropout: 0.5
+  layerclass: GCNIILayer #GCNII_star_Layer 有两种GCNII层
+
+
+optimizer_class_args: #import
+  module_path: torch.optim
+  class_name: Adam
+optimizer_args:
+  lr: 0.01
+weight_decay1: 0.01
+weight_decay2: 5.0e-4
+
+scheduler_class_args:
+  module_path: torch.optim.lr_scheduler
+  class_name: ReduceLROnPlateau
+scheduler_args:
+  mode: min
+  factor: 0.3
+  patience: 10
+  min_lr: 1.0e-8
+  verbose: False
+scheduler_monitor: val_loss
+
+
+
+#training
+device: cuda
+epochs: 1500
+loss_weights: null
+dfcallback_args:
+  df_save_path: ./tables/${model_class_args.class_name}.csv
+tbwriter_args:
+  log_dir: ./logs/
+earlystop_args:
+  checkpoint_dir: ./checkpoint/
+  monitor: val_metric_acc
+  patience: 100
+  restore_best_weights: True
+  save_best_only: True
