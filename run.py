@@ -48,6 +48,7 @@ def train_one_args(args, data=None):
     ModelClass = tool.import_class(**args['model_class_args'])
     model = ModelClass(n_feats=sum(n_feats), n_class=n_class, **args['model_args'])
     wrapmodel = mtorch.WrapModel(model).to(device)
+    callback_list: List[mtorch.Callback] = [mtorch.PruningCallback(args['trial'],args['tuner_monitor'])] if args['tuner_flag'] else []
 
     # loss optimizer lr_scheduler
     loss_fn = nn.CrossEntropyLoss()
@@ -62,28 +63,33 @@ def train_one_args(args, data=None):
     # def sche_func(epoch, lr, epoch_logs):
     #    scheduler.step(epoch_logs[args['scheduler_monitor']])
     # scheduler_callback = mtorch.SchedulerWrapCallback(sche_func,True)
+    # callback_list.append(scheduler_callback)
 
     # training
-    wrapmodel.compile(loss=bind_boolind_for_fn(loss_fn, train_bool, val_bool),
-                  optimizer=optimizer,
-                  metric=[bind_boolind_for_fn(mmetric.acc, train_bool, val_bool),
-                     bind_boolind_for_fn(mmetric.f1, train_bool, val_bool),
-                     bind_boolind_for_fn(mmetric.precision,train_bool,val_bool),
-                     bind_boolind_for_fn(mmetric.recall,train_bool,val_bool)
-                     ])
-    history = wrapmodel.fit(dataload, epochs=args['epochs'],
-              device=device,
-              val_dataload=dataload,
-              callbacks=[
-                  mtorch.DfSaveCallback(**args['dfcallback_args']),
-                  mtorch.EarlyStoppingCallback(quiet=args['quiet'],**args['earlystop_args']),
-                  mtorch.TunerRemovePreFileInDir([
-                      args['earlystop_args']['checkpoint_dir'],
-                  ],10,0.8),
-                  #scheduler_callback,
-                  mtorch.PruningCallback(args['trial'],args['tuner_monitor']),
-              ],
-              quiet=args['quiet'])
+    wrapmodel.compile(
+        loss=bind_boolind_for_fn(loss_fn, train_bool, val_bool),
+        optimizer=optimizer,
+        metric=[
+            bind_boolind_for_fn(mmetric.acc, train_bool, val_bool),
+            bind_boolind_for_fn(mmetric.f1, train_bool, val_bool),
+            bind_boolind_for_fn(mmetric.precision,train_bool,val_bool),
+            bind_boolind_for_fn(mmetric.recall,train_bool,val_bool),
+        ]
+    )
+    history = wrapmodel.fit(
+        dataload=dataload,
+        epochs=args['epochs'],
+        device=device,
+        val_dataload=dataload,
+        callbacks=callback_list.extend([
+          mtorch.DfSaveCallback(**args['dfcallback_args']),
+          mtorch.EarlyStoppingCallback(quiet=args['quiet'],**args['earlystop_args']),
+          mtorch.TunerRemovePreFileInDir([
+              args['earlystop_args']['checkpoint_dir'],
+          ],10,0.8),
+        ]),
+        quiet=args['quiet']
+    )
 
     return history.history
 
