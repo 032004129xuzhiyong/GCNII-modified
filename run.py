@@ -101,6 +101,36 @@ def train_one_args(args, data=None):
     return history.history
 
 
+def train_times_and_get_mean_metric(repeat_args, first_train_logs):
+    if repeat_args['tuner_n_repeats'] >= 1 and isinstance(repeat_args['tuner_n_repeats'],int):
+        pass
+    else:
+        repeat_args['tuner_n_repeats'] = 1
+
+    # flag tuner
+    repeat_args['tuner_flag'] = False
+
+    # Load data outside the scope of repeated experiments
+    data = load_mat(**repeat_args['dataset_args'])
+
+    # collect logs
+    repeat_df_list = [pd.DataFrame(first_train_logs)]
+    for rep_idx in range(repeat_args['tuner_n_repeats']-1):
+        rep_logs = train_one_args(repeat_args,data)
+        repeat_df_list.append(pd.DataFrame(rep_logs))
+
+    # compute mean metric
+    loss_metric_list = mtorch.History()
+    for df in repeat_df_list:
+        df_col_names = df.columns
+        metric_dict = df.iloc[:,df_col_names.str.contains('metric')].max(axis=0).to_dict()
+        loss_dict = df.iloc[:,df_col_names.str.contains('loss')].min(axis=0).to_dict()
+        loss_metric_list.update(metric_dict)
+        loss_metric_list.update(loss_dict)
+    mean_dict = loss_metric_list.mean()  # {key: np_mean_value}
+    return {k: float(v) for k, v in mean_dict.items()}
+
+
 def train_with_besthp_and_save_config_and_history(best_conf):
     """
     保存两个数据： 最优配置(存储为yaml文件) 和  多次实验的过程数据(pd.DataFrame数据格式存储为多个csv文件)
@@ -185,14 +215,13 @@ def compute_mean_metric_in_bestdir_for_all_dataset(best_dir):
 def objective(trial: optuna.trial.Trial, extra_args):
     args = copy.deepcopy(extra_args)
     args = tool.modify_dict_with_trial(args, trial)
+    # get first logs
     args['trial'] = trial
     args['tuner_flag'] = True
-    # get history epoch
-    history = train_one_args(args)
-    if 'loss' in args['tuner_monitor']:
-        return min(history[args['tuner_monitor']])
-    else:  # metric
-        return max(history[args['tuner_monitor']])
+    first_logs = train_one_args(args)
+    # train other times and compute mean metric/loss
+    mean_logs = train_times_and_get_mean_metric(args, first_logs)
+    return mean_logs[args['tuner_monitor']]
 
 
 def parser_args():
