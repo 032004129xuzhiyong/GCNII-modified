@@ -81,7 +81,7 @@ def train_one_args(args, data=None):
 
     # add callbacks
     callback_list.extend([
-        mcallback.DfSaveCallback(**args['dfcallback_args']),
+        # mcallback.DfSaveCallback(**args['dfcallback_args']),
         mcallback.EarlyStoppingCallback(quiet=args['quiet'],**args['earlystop_args']),
         mcallback.TunerRemovePreFileInDir([
             args['earlystop_args']['checkpoint_dir'],
@@ -139,10 +139,10 @@ def train_with_besthp_and_save_config_and_history(best_conf):
         None
     """
     # flag tuner
-    yaml_args['tuner_flag'] = False
+    best_conf['tuner_flag'] = False
 
     best_dir = best_conf['best_trial_save_dir']
-    dataset_name = tool.get_basename_split_ext(best_conf['dfcallback_args']['df_save_path'])
+    dataset_name = tool.get_basename_split_ext(best_conf['dataset_args']['mat_path'])
     best_dataset_dir = os.path.join(best_dir, dataset_name)
     if not os.path.exists(best_dataset_dir):
         os.makedirs(best_dataset_dir)
@@ -226,138 +226,68 @@ def objective(trial: optuna.trial.Trial, extra_args):
 
 def parser_args():
     parser = argparse.ArgumentParser()
-    # config
-    parser.add_argument('--config-paths','-cps',
-                        nargs='+',
-                        required=True,
-                        help='yaml config paths. e.g. config/3sources.yaml',
-                        dest='config_paths')
+    subparsers = parser.add_subparsers()
+
+    # public
+    def add_public_argument(parser):
+        parser.add_argument('--config-paths','-cps',
+                            nargs='+',
+                            required=True,
+                            help='yaml config paths. e.g. config/3sources.yaml',
+                            dest='config_paths')
+        parser.add_argument('--change-args','-ca',
+                            nargs='*',
+                            default=None,
+                            help='change args. e.g. dataset_args.topk=10 model_args.hid_dim=64',
+                            dest='change_args')
+        parser.add_argument('--quiet','-q',
+                            action='store_true',
+                            default=False,
+                            help='whether to show logs')
+
     # tuner
-    parser.add_argument('--tuner-monitor','-tm',
-                        default=None,
-                        type=str,
-                        help='tuner monitor metrics. e.g. loss/val_loss/metric_acc/val_metric_acc',
-                        dest='tuner_monitor')
-    parser.add_argument('--tuner-n-trials','-tn',
-                        default=None,
-                        type=int,
-                        help='tuner n trials',
-                        dest='tuner_n_trials')
-    parser.add_argument('--tuner-n-repeats','-tr',
-                        default=None,
-                        type=int,
-                        help='tuner n repeats',
-                        dest='tuner_n_repeats')
-    parser.add_argument('--best-trial','-bt',
-                        default=None,
-                        type=int,
-                        help='best trial',
-                        dest='best_trial')
-    parser.add_argument('--best-trial-save-dir','-btsd',
-                        default=None,
-                        type=str,
-                        help='best trial save dir',
-                        dest='best_trial_save_dir')
-    # dataset
-    parser.add_argument('--topk',
-                        default=None,
-                        type=int,
-                        help='knn topk',
-                        dest='dataset_args.topk')
-    parser.add_argument('--train-ratio',
-                        default=None,
-                        type=float,
-                        help='train val split ratio',
-                        dest='dataset_args.train_ratio')
-    # model args
-    parser.add_argument('--layer-class','-lc',
-                        default=None,
-                        type=str,
-                        help='GCNII layer class, all layer classes: GCNIILayer/GCNII_star_Layer',
-                        dest='model_args.layerclass')
-    parser.add_argument('--n-layer','-nl',
-                        default=None,
-                        type=int,
-                        help='number of layers',
-                        dest='model_args.nlayer')
-    parser.add_argument('--hid-dim','-hd',
-                        default=None,
-                        type=int,
-                        help='hidden dimension',
-                        dest='model_args.hid_dim')
-    parser.add_argument('--dropout','-dp',
-                        default=None,
-                        type=float,
-                        help='dropout ratio',
-                        dest='model_args.dropout')
-    parser.add_argument('--alpha','-al',
-                        default=None,
-                        type=float,
-                        help='alpha/h0',
-                        dest='model_args.alpha')
-    parser.add_argument('--lamda','-la',
-                        default=None,
-                        type=float,
-                        help='beta=lamda/l(nth-layer)',
-                        dest='model_args.lamda')
-    # training
-    parser.add_argument('--device','-dv',
-                        default=None,
-                        type=str,
-                        help='torch device')
-    parser.add_argument('--epochs','-ep',
-                        default=None,
-                        type=int,
-                        help='number of epochs')
-    parser.add_argument('--loss-weights','-lw',
-                        nargs='*',
-                        default=None,
-                        help='loss weights',
-                        dest='loss_weights')
-    parser.add_argument('--save-best-only','-sbo',
-                        action='store_true',
-                        default=None,
-                        help='earlystop args if save best weights only',
-                        dest='earlystop_args.save_best_only')
-    parser.add_argument('--monitor','-m',
-                        default=None,
-                        type=str,
-                        help='earlystop args monitor metrics. e.g. loss/val_loss/metric_acc/val_metric_acc',
-                        dest='earlystop_args.monitor')
-    parser.add_argument('--patience','-pt',
-                        default=None,
-                        type=int,
-                        help='earlystop args patience',
-                        dest='earlystop_args.patience')
-    parser.add_argument('--quiet','-q',
-                        action='store_true',
-                        default=False,
-                        help='whether to show logs')
-    # others
-    parser.add_argument('--train-times-with-no-tuner', '-ttnt',
-                        default=1,
-                        type=int,
-                        help='训练实验次数，没有超参数搜索(默认有超参数搜索)',
-                        dest='tt_nt')
-    parser.add_argument('--train-save-dir-with-no-tuner', '-tsdnt',
-                        default='temp_result/',
-                        type=str,
-                        help='训练实验数据保存目录，没有超参数搜索(默认有超参数搜索)',
-                        dest='tsd_nt')
-    return parser.parse_args()
+    parser_tuner = subparsers.add_parser('tuner')
+    add_public_argument(parser_tuner)
+    parser_tuner.set_defaults(func=parser_tuner_func)
+
+    # run
+    parser_run = subparsers.add_parser('run')
+    add_public_argument(parser_run)
+    parser_run.set_defaults(func=parser_run_func)
+    parser_run.add_argument('--run-times','-rt',
+                            default=1,
+                            type=int,
+                            help='run times',
+                            dest='run_times')
+    parser_run.add_argument('--result-dir','-rd',
+                            default='temp_result/',
+                            type=str,
+                            help='result dir',
+                            dest='result_dir')
+
+    args = parser.parse_args()
+    args.func(args)
 
 
-if __name__ == '__main__':
-    parser_args = vars(parser_args())
+def parser_tuner_func(args):
+    parser_args = vars(args)
+    parser_args.pop('func')
+
+    # get parser args
     expand_args = benedict()
-    for k,v in parser_args.items():
+    change_args = parser_args.pop('change_args')  # List
+    for k, v in parser_args.items():
         expand_args[k] = v
+    if change_args is not None:
+        for change_arg in change_args:
+            k, v = change_arg.split('=')
+            expand_args[k] = eval(v)
 
     for conf in expand_args['config_paths']:
         yaml_args = benedict.from_yaml(conf)
 
         # update parser args
-        expand_args = tool.remove_dict_None_value(expand_args) # clean None value
+        expand_args = tool.remove_dict_None_value(expand_args)  # clean None value
         yaml_args.deepupdate(expand_args)
 
         # update callbacks save path
@@ -386,7 +316,7 @@ if __name__ == '__main__':
                                         load_if_exists=True,
                                         pruner=mtuner.CombinePruner([
                                             optuna.pruners.MedianPruner(n_warmup_steps=30),
-                                            optuna.pruners.PercentilePruner(0.1,n_warmup_steps=30)
+                                            optuna.pruners.PercentilePruner(0.1, n_warmup_steps=30)
                                         ]),
                                         sampler=optuna.samplers.TPESampler())
             study.optimize(lambda trial: objective(trial, args),
@@ -408,8 +338,238 @@ if __name__ == '__main__':
             best_args = tool.modify_dict_with_trial(args, study.best_trial)
             train_with_besthp_and_save_config_and_history(best_args)
         else:
+            raise ValueError('No hyperparameter to tune!!')
+
+
+def parser_run_func(args):
+    parser_args = vars(args)
+    parser_args.pop('func')
+
+    # get parser args
+    expand_args = benedict()
+    change_args = parser_args.pop('change_args')  # List
+    for k, v in parser_args.items():
+        expand_args[k] = v
+    if change_args is not None:
+        for change_arg in change_args:
+            k, v = change_arg.split('=')
+            expand_args[k] = eval(v)
+
+    for conf in expand_args['config_paths']:
+        yaml_args = benedict.from_yaml(conf)
+
+        # update parser args
+        expand_args = tool.remove_dict_None_value(expand_args)  # clean None value
+        yaml_args.deepupdate(expand_args)
+
+        # update callbacks save path
+        yaml_args['dfcallback_args.df_save_path'] = os.path.join('./tables/', tool.get_basename_split_ext(conf) + '.csv')
+        yaml_args['tbwriter_args.log_dir'] = os.path.join('./logs/', tool.get_basename_split_ext(conf))
+        yaml_args['earlystop_args.checkpoint_dir'] = os.path.join('./checkpoint/', tool.get_basename_split_ext(conf))
+
+        # flag tuner
+        yaml_args['tuner_flag'] = False
+
+        args = yaml_args.dict()
+        if tool.has_hyperparameter(args):
+            raise ValueError('Has hyperparameter!!')
+        else:
             # only one config and train times
             best_args = args
-            best_args['best_trial'] = parser_args['tt_nt']
-            best_args['best_trial_save_dir'] = parser_args['tsd_nt']
+            best_args['best_trial'] = parser_args['run_times']
+            best_args['best_trial_save_dir'] = parser_args['result_dir']
             train_with_besthp_and_save_config_and_history(best_args)
+
+
+if __name__ == '__main__':
+    parser_args()
+
+# def parser_args():
+#     parser = argparse.ArgumentParser()
+#     # config
+#     parser.add_argument('--config-paths','-cps',
+#                         nargs='+',
+#                         required=True,
+#                         help='yaml config paths. e.g. config/3sources.yaml',
+#                         dest='config_paths')
+#     # tuner
+#     parser.add_argument('--tuner-monitor','-tm',
+#                         default=None,
+#                         type=str,
+#                         help='tuner monitor metrics. e.g. loss/val_loss/metric_acc/val_metric_acc',
+#                         dest='tuner_monitor')
+#     parser.add_argument('--tuner-n-trials','-tn',
+#                         default=None,
+#                         type=int,
+#                         help='tuner n trials',
+#                         dest='tuner_n_trials')
+#     parser.add_argument('--tuner-n-repeats','-tr',
+#                         default=None,
+#                         type=int,
+#                         help='tuner n repeats',
+#                         dest='tuner_n_repeats')
+#     parser.add_argument('--best-trial','-bt',
+#                         default=None,
+#                         type=int,
+#                         help='best trial',
+#                         dest='best_trial')
+#     parser.add_argument('--best-trial-save-dir','-btsd',
+#                         default=None,
+#                         type=str,
+#                         help='best trial save dir',
+#                         dest='best_trial_save_dir')
+#     # dataset
+#     parser.add_argument('--topk',
+#                         default=None,
+#                         type=int,
+#                         help='knn topk',
+#                         dest='dataset_args.topk')
+#     parser.add_argument('--train-ratio',
+#                         default=None,
+#                         type=float,
+#                         help='train val split ratio',
+#                         dest='dataset_args.train_ratio')
+#     # model args
+#     parser.add_argument('--layer-class','-lc',
+#                         default=None,
+#                         type=str,
+#                         help='GCNII layer class, all layer classes: GCNIILayer/GCNII_star_Layer',
+#                         dest='model_args.layerclass')
+#     parser.add_argument('--n-layer','-nl',
+#                         default=None,
+#                         type=int,
+#                         help='number of layers',
+#                         dest='model_args.nlayer')
+#     parser.add_argument('--hid-dim','-hd',
+#                         default=None,
+#                         type=int,
+#                         help='hidden dimension',
+#                         dest='model_args.hid_dim')
+#     parser.add_argument('--dropout','-dp',
+#                         default=None,
+#                         type=float,
+#                         help='dropout ratio',
+#                         dest='model_args.dropout')
+#     parser.add_argument('--alpha','-al',
+#                         default=None,
+#                         type=float,
+#                         help='alpha/h0',
+#                         dest='model_args.alpha')
+#     parser.add_argument('--lamda','-la',
+#                         default=None,
+#                         type=float,
+#                         help='beta=lamda/l(nth-layer)',
+#                         dest='model_args.lamda')
+#     # training
+#     parser.add_argument('--device','-dv',
+#                         default=None,
+#                         type=str,
+#                         help='torch device')
+#     parser.add_argument('--epochs','-ep',
+#                         default=None,
+#                         type=int,
+#                         help='number of epochs')
+#     parser.add_argument('--loss-weights','-lw',
+#                         nargs='*',
+#                         default=None,
+#                         help='loss weights',
+#                         dest='loss_weights')
+#     parser.add_argument('--save-best-only','-sbo',
+#                         action='store_true',
+#                         default=None,
+#                         help='earlystop args if save best weights only',
+#                         dest='earlystop_args.save_best_only')
+#     parser.add_argument('--monitor','-m',
+#                         default=None,
+#                         type=str,
+#                         help='earlystop args monitor metrics. e.g. loss/val_loss/metric_acc/val_metric_acc',
+#                         dest='earlystop_args.monitor')
+#     parser.add_argument('--patience','-pt',
+#                         default=None,
+#                         type=int,
+#                         help='earlystop args patience',
+#                         dest='earlystop_args.patience')
+#     parser.add_argument('--quiet','-q',
+#                         action='store_true',
+#                         default=False,
+#                         help='whether to show logs')
+#     # others
+#     parser.add_argument('--train-times-with-no-tuner', '-ttnt',
+#                         default=1,
+#                         type=int,
+#                         help='训练实验次数，没有超参数搜索(默认有超参数搜索)',
+#                         dest='tt_nt')
+#     parser.add_argument('--train-save-dir-with-no-tuner', '-tsdnt',
+#                         default='temp_result/',
+#                         type=str,
+#                         help='训练实验数据保存目录，没有超参数搜索(默认有超参数搜索)',
+#                         dest='tsd_nt')
+#     return parser.parse_args()
+
+# if __name__ == '__main__':
+#     parser_args = vars(parser_args())
+#     expand_args = benedict()
+#     for k,v in parser_args.items():
+#         expand_args[k] = v
+#
+#     for conf in expand_args['config_paths']:
+#         yaml_args = benedict.from_yaml(conf)
+#
+#         # update parser args
+#         expand_args = tool.remove_dict_None_value(expand_args) # clean None value
+#         yaml_args.deepupdate(expand_args)
+#
+#         # update callbacks save path
+#         yaml_args['dfcallback_args.df_save_path'] = os.path.join('./tables/', tool.get_basename_split_ext(conf) + '.csv')
+#         yaml_args['tbwriter_args.log_dir'] = os.path.join('./logs/', tool.get_basename_split_ext(conf))
+#         yaml_args['earlystop_args.checkpoint_dir'] = os.path.join('./checkpoint/', tool.get_basename_split_ext(conf))
+#
+#         # flag tuner
+#         yaml_args['tuner_flag'] = False
+#
+#         args = yaml_args.dict()
+#         if tool.has_hyperparameter(args):
+#             # tuner
+#             yaml_args['tuner_flag'] = True
+#
+#             if 'loss' in args['tuner_monitor']:
+#                 direction = 'minimize'
+#             else:
+#                 direction = 'maximize'
+#             study = optuna.create_study(direction=direction,
+#                                         study_name=tool.get_basename_split_ext(conf),
+#                                         storage=optuna.storages.RDBStorage('sqlite:///./tuner.db',
+#                                                                            heartbeat_interval=60,
+#                                                                            grace_period=120,
+#                                                                            failed_trial_callback=optuna.storages.RetryFailedTrialCallback(3)),
+#                                         load_if_exists=True,
+#                                         pruner=mtuner.CombinePruner([
+#                                             optuna.pruners.MedianPruner(n_warmup_steps=30),
+#                                             optuna.pruners.PercentilePruner(0.1,n_warmup_steps=30)
+#                                         ]),
+#                                         sampler=optuna.samplers.TPESampler())
+#             study.optimize(lambda trial: objective(trial, args),
+#                            n_trials=args['tuner_n_trials'],
+#                            gc_after_trial=True,
+#                            show_progress_bar=True,
+#                            callbacks=[mcallback.StudyStopWhenTrialKeepBeingPrunedCallback(20)])
+#
+#             # get best args
+#             best_hp = study.best_params
+#             # print
+#             for i in range(5):
+#                 print('*' * 50)
+#             tool.print_dicts_tablefmt([best_hp], ['Best HyperParameters!!'])
+#             for i in range(5):
+#                 print('*' * 50)
+#
+#             # train times with best args
+#             best_args = tool.modify_dict_with_trial(args, study.best_trial)
+#             train_with_besthp_and_save_config_and_history(best_args)
+#         else:
+#             # only one config and train times
+#             best_args = args
+#             best_args['best_trial'] = parser_args['tt_nt']
+#             best_args['best_trial_save_dir'] = parser_args['tsd_nt']
+#             train_with_besthp_and_save_config_and_history(best_args)
+#

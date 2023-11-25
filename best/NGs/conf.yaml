@@ -4,7 +4,7 @@ config_paths:
 - config/NGs.yaml
 dataset_args:
   mat_path: data/NGs.mat
-  topk: 27
+  topk: 31
   train_ratio: 0.1
 device: cuda
 dfcallback_args:
@@ -32,10 +32,10 @@ metric_recall:
 model_args:
   alpha: 0.1
   dropout: 0.5
-  hid_dim: 88
-  lamda: 0.5
+  hid_dim: 72
+  lamda: 0.6939582335992862
   layerclass: GCNIILayer
-  nlayer: 4
+  nlayer: 2
 model_class_args:
   class_name: GCNII_model
   module_path: models.model
@@ -57,23 +57,21 @@ scheduler_class_args:
 scheduler_monitor: val_loss
 tbwriter_args:
   log_dir: ./logs/NGs
-tsd_nt: temp_result/
-tt_nt: 1
 tuner_flag: false
 tuner_monitor: val_metric_acc
 tuner_n_repeats: 5
-tuner_n_trials: 250
+tuner_n_trials: 5
 val_metric_acc:
-  mean: 0.87422223
-  std: 0.02235957474363812
+  mean: 0.933111118
+  std: 0.007662636821749804
 val_metric_f1:
-  mean: 0.875881395740113
-  std: 0.02081236852369566
+  mean: 0.933742024489138
+  std: 0.007528558995033918
 val_metric_precision:
-  mean: 0.9054341857590366
-  std: 0.009999102646036847
+  mean: 0.9425509453914624
+  std: 0.005413780863484235
 val_metric_recall:
-  mean: 0.8742222222222222
-  std: 0.022359575516631605
+  mean: 0.9327316940780545
+  std: 0.00772061776784257
 weight_decay1: 0.01
 weight_decay2: 0.0005

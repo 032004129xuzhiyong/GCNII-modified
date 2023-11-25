@@ -31,7 +31,10 @@ model_args: #模型参数                            #
     high: 128
     step: 8
   alpha: 0.1 #h0
-  lamda: 0.5 #每层的beta为lamda/l(第几层)
+  lamda:
+    type: float
+    low: 0.3
+    high: 0.7 #每层的beta为lamda/l(第几层)
   dropout: 0.5
   layerclass: GCNIILayer #GCNII_star_Layer 有两种GCNII层
 
