@@ -57,23 +57,21 @@ scheduler_class_args:
 scheduler_monitor: val_loss
 tbwriter_args:
   log_dir: ./logs/3sources
-tsd_nt: temp_result/
-tt_nt: 1
 tuner_flag: false
 tuner_monitor: val_metric_acc
 tuner_n_repeats: 5
-tuner_n_trials: 250
+tuner_n_trials: 5
 val_metric_acc:
-  mean: 0.8137254939999998
-  std: 0.013787587171029013
+  mean: 0.775657889
+  std: 0.01330510019523902
 val_metric_f1:
-  mean: 0.6645254682008255
-  std: 0.017934961783621764
+  mean: 0.6531403532143336
+  std: 0.026323826180824152
 val_metric_precision:
-  mean: 0.6897306038120906
-  std: 0.022834356184465245
+  mean: 0.7459703561438008
+  std: 0.008461706737340544
 val_metric_recall:
-  mean: 0.7255047668962763
-  std: 0.02522746621232546
+  mean: 0.6791281417335211
+  std: 0.02846703792511384
 weight_decay1: 0.01
 weight_decay2: 0.0005

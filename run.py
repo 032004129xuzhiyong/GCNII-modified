@@ -265,6 +265,16 @@ def parser_args():
                             help='result dir',
                             dest='result_dir')
 
+    # grid search
+    parser_grid = subparsers.add_parser('grid')
+    add_public_argument(parser_grid)
+    parser_grid.set_defaults(func=parser_grid_func)
+    parser_grid.add_argument('--grid-search-space','-gss',
+                             nargs='*',
+                             default=None,
+                             help='grid search space. e.g. dataset_args.topk=[10,20,30] model_args.hid_dim=[64,128]',
+                             dest='grid_search_space')
+
     args = parser.parse_args()
     args.func(args)
 
@@ -291,9 +301,9 @@ def parser_tuner_func(args):
         yaml_args.deepupdate(expand_args)
 
         # update callbacks save path
-        yaml_args['dfcallback_args.df_save_path'] = os.path.join('./tables/', tool.get_basename_split_ext(conf) + '.csv')
-        yaml_args['tbwriter_args.log_dir'] = os.path.join('./logs/', tool.get_basename_split_ext(conf))
-        yaml_args['earlystop_args.checkpoint_dir'] = os.path.join('./checkpoint/', tool.get_basename_split_ext(conf))
+        yaml_args['dfcallback_args.df_save_path'] = os.path.join('./tables/', tool.get_basename_split_ext(yaml_args['dataset_args']['mat_path']) + '.csv')
+        yaml_args['tbwriter_args.log_dir'] = os.path.join('./logs/', tool.get_basename_split_ext(yaml_args['dataset_args']['mat_path']))
+        yaml_args['earlystop_args.checkpoint_dir'] = os.path.join('./checkpoint/', tool.get_basename_split_ext(yaml_args['dataset_args']['mat_path']))
 
         # flag tuner
         yaml_args['tuner_flag'] = False
@@ -301,14 +311,14 @@ def parser_tuner_func(args):
         args = yaml_args.dict()
         if tool.has_hyperparameter(args):
             # tuner
-            yaml_args['tuner_flag'] = True
+            args['tuner_flag'] = True
 
             if 'loss' in args['tuner_monitor']:
                 direction = 'minimize'
             else:
                 direction = 'maximize'
             study = optuna.create_study(direction=direction,
-                                        study_name=tool.get_basename_split_ext(conf),
+                                        study_name=tool.get_basename_split_ext(args['dataset_args']['mat_path']),
                                         storage=optuna.storages.RDBStorage('sqlite:///./tuner.db',
                                                                            heartbeat_interval=60,
                                                                            grace_period=120,
@@ -363,9 +373,9 @@ def parser_run_func(args):
         yaml_args.deepupdate(expand_args)
 
         # update callbacks save path
-        yaml_args['dfcallback_args.df_save_path'] = os.path.join('./tables/', tool.get_basename_split_ext(conf) + '.csv')
-        yaml_args['tbwriter_args.log_dir'] = os.path.join('./logs/', tool.get_basename_split_ext(conf))
-        yaml_args['earlystop_args.checkpoint_dir'] = os.path.join('./checkpoint/', tool.get_basename_split_ext(conf))
+        yaml_args['dfcallback_args.df_save_path'] = os.path.join('./tables/', tool.get_basename_split_ext(yaml_args['dataset_args']['mat_path']) + '.csv')
+        yaml_args['tbwriter_args.log_dir'] = os.path.join('./logs/', tool.get_basename_split_ext(yaml_args['dataset_args']['mat_path']))
+        yaml_args['earlystop_args.checkpoint_dir'] = os.path.join('./checkpoint/', tool.get_basename_split_ext(yaml_args['dataset_args']['mat_path']))
 
         # flag tuner
         yaml_args['tuner_flag'] = False
@@ -379,6 +389,92 @@ def parser_run_func(args):
             best_args['best_trial'] = parser_args['run_times']
             best_args['best_trial_save_dir'] = parser_args['result_dir']
             train_with_besthp_and_save_config_and_history(best_args)
+
+
+def parser_grid_func(args):
+    parser_args = vars(args)
+    parser_args.pop('func')
+
+    # get parser args
+    expand_args = benedict()
+    change_args = parser_args.pop('change_args')  # List
+    grid_search_space = parser_args.pop('grid_search_space')  # List
+    for k, v in parser_args.items():
+        expand_args[k] = v
+    if change_args is not None:
+        for change_arg in change_args:
+            k, v = change_arg.split('=')
+            expand_args[k] = eval(v)
+    # get grid search space
+    # grid_search_space: List[str] e.g. ['dataset_args.topk=[10,20,30]','model_args.hid_dim=[64,128]']
+    # in grid_search_space, key is full name, value is list
+    # but in parser_grid_search_space, key is short name, value is list
+    parser_grid_search_space = {}
+    if grid_search_space is not None:
+        for grid_search_arg in grid_search_space:
+            k, v = grid_search_arg.split('=')
+            parser_grid_search_space[k.split('.')[-1]] = eval(v)
+    # else:
+    #     raise ValueError('No grid search space!!')
+
+    for conf in expand_args['config_paths']:
+        # best/dataset/conf.yaml It has no hyperparameter to tune
+        yaml_args = benedict.from_yaml(conf)
+
+        # add hyperparameter to tune from grid_search_space
+        # grid_search_space: List[str] e.g. ['dataset_args.topk=[10,20,30]','model_args.hid_dim=[64,128]']
+        if grid_search_space is not None:
+            for grid_search_arg in grid_search_space:
+                k, v = grid_search_arg.split('=')
+                # add something in location which will be searched in grid search.
+                # It is a placehold, and will be replaced by grid search.
+                v = eval(v)
+                if type(v[0]) == int:
+                    yaml_args[k] = {'type': 'int', 'low': 0, 'high': 10}
+                elif type(v[0]) == float:
+                    yaml_args[k] = {'type': 'float', 'low': 0.0, 'high': 10.0}
+                elif type(v[0]) == str:
+                    yaml_args[k] = {'type': 'categorical', 'choices': v}
+        elif tool.has_hyperparameter(yaml_args.dict()):
+            # maybe config has hyperparameter to tune
+            # should transform hyperparameter to parser_grid_search_space
+            pass
+        else:
+            raise ValueError('No hyperparameter to tune!!')
+
+        # update parser args
+        expand_args = tool.remove_dict_None_value(expand_args)
+        yaml_args.deepupdate(expand_args)
+
+        # flag tuner
+        yaml_args['tuner_flag'] = False
+
+        args = yaml_args.dict()
+        if tool.has_hyperparameter(args):
+            # tuner
+            args['tuner_flag'] = True
+
+            if 'loss' in args['tuner_monitor']:
+                direction = 'minimize'
+            else:
+                direction = 'maximize'
+            study = optuna.create_study(direction=direction,
+                                        study_name='grid_'+tool.get_basename_split_ext(args['dataset_args']['mat_path']),
+                                        storage=optuna.storages.RDBStorage('sqlite:///./tuner.db',
+                                                                           heartbeat_interval=60,
+                                                                           grace_period=120,
+                                                                           failed_trial_callback=optuna.storages.RetryFailedTrialCallback(3)),
+                                        load_if_exists=True,
+                                        pruner=optuna.pruners.NopPruner(),
+                                        sampler=optuna.samplers.GridSampler(parser_grid_search_space))
+            study.optimize(lambda trial: objective(trial, args),
+                           n_trials=99999,
+                           gc_after_trial=True,
+                           show_progress_bar=True,
+                           callbacks=[mcallback.StudyStopWhenTrialKeepBeingPrunedCallback(20)])
+
+        else:
+            raise ValueError('No hyperparameter to tune!!')
 
 
 if __name__ == '__main__':
@@ -531,7 +627,7 @@ if __name__ == '__main__':
 #         args = yaml_args.dict()
 #         if tool.has_hyperparameter(args):
 #             # tuner
-#             yaml_args['tuner_flag'] = True
+#             args['tuner_flag'] = True
 #
 #             if 'loss' in args['tuner_monitor']:
 #                 direction = 'minimize'

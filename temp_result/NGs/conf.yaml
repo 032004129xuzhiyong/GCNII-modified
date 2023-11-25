@@ -8,9 +8,9 @@ dataset_args:
   train_ratio: 0.1
 device: cuda
 dfcallback_args:
-  df_save_path: ./tables/conf.csv
+  df_save_path: ./tables/NGs.csv
 earlystop_args:
-  checkpoint_dir: ./checkpoint/conf
+  checkpoint_dir: ./checkpoint/NGs
   monitor: val_metric_acc
   patience: 100
   restore_best_weights: true
@@ -58,24 +58,22 @@ scheduler_class_args:
   module_path: torch.optim.lr_scheduler
 scheduler_monitor: val_loss
 tbwriter_args:
-  log_dir: ./logs/conf
-tsd_nt: temp_result/
-tt_nt: 1
+  log_dir: ./logs/NGs
 tuner_flag: false
 tuner_monitor: val_metric_acc
 tuner_n_repeats: 5
-tuner_n_trials: 250
+tuner_n_trials: 5
 val_metric_acc:
-  mean: 0.94666666
+  mean: 0.95555556
   std: 0.0
 val_metric_f1:
-  mean: 0.9477204029471712
+  mean: 0.955644592943258
   std: 0.0
 val_metric_precision:
-  mean: 0.9525818652690626
+  mean: 0.9574513356286432
   std: 0.0
 val_metric_recall:
-  mean: 0.9469500081419964
+  mean: 0.9556006079357324
   std: 0.0
 weight_decay1: 0.01
 weight_decay2: 0.0005
