@@ -421,6 +421,11 @@ def parser_grid_func(args):
         # best/dataset/conf.yaml It has no hyperparameter to tune
         yaml_args = benedict.from_yaml(conf)
 
+        # update parser args
+        # update ahead of transform_dict_to_search_space to remove other change_args
+        expand_args = tool.remove_dict_None_value(expand_args)
+        yaml_args.deepupdate(expand_args)
+
         # add hyperparameter to tune from grid_search_space
         # grid_search_space: List[str] e.g. ['dataset_args.topk=[10,20,30]','model_args.hid_dim=[64,128]']
         if grid_search_space is not None:
@@ -438,13 +443,9 @@ def parser_grid_func(args):
         elif tool.has_hyperparameter(yaml_args.dict()):
             # maybe config has hyperparameter to tune
             # should transform hyperparameter to parser_grid_search_space
-            pass
+            parser_grid_search_space = tool.transform_dict_to_search_space(yaml_args.dict())
         else:
             raise ValueError('No hyperparameter to tune!!')
-
-        # update parser args
-        expand_args = tool.remove_dict_None_value(expand_args)
-        yaml_args.deepupdate(expand_args)
 
         # flag tuner
         yaml_args['tuner_flag'] = False
