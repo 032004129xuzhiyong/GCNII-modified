@@ -18,7 +18,19 @@ if not os.path.exists('./parameters'):
     os.mkdir('./parameters')
 
 
-def plot_dataset_to_df(dataset_to_df, layout=None, field_check='val_metric_', show=False):
+def plot_dataset_to_df(dataset_to_df, layout=None,
+                       field_check='val_metric_', plot_type='line',
+                       show=False):
+    """
+    plot dataset_to_df
+    :param dataset_to_df: Dict[dataset_name,df]
+    :param layout: (row,col)
+    :param field_check: string to check in column name as y-axis-data
+    :param plot_type: 'line' or 'bar'
+    :param show: bool
+    :return:
+        None
+    """
     num_dataset = len(dataset_to_df.keys())
     if layout is None:
         layout = (1,num_dataset)
@@ -44,11 +56,18 @@ def plot_dataset_to_df(dataset_to_df, layout=None, field_check='val_metric_', sh
         # rescale y-axis-data to [0,100]
         if 'metric' in field_check:
             filter_df.iloc[:,1:] = filter_df.iloc[:,1:] * 100
-        ax: plt.Axes = mplot.plot_lines_with_compare_data(ax=axes[i],x=filter_df,
-                                           xlabel=filter_df.columns[0],
-                                           ylabel='Evaluation Metrics(%)',
-                                           title=dataset_name,
-                                           markevery=4)
+        if plot_type == 'line':
+            ax: plt.Axes = mplot.plot_lines_with_compare_data(ax=axes[i],x=filter_df,
+                                               xlabel=filter_df.columns[0],
+                                               ylabel='Evaluation Metrics(%)',
+                                               title=dataset_name,
+                                               markevery=4)
+        elif plot_type == 'bar':
+            ax = mplot.plot_bars_with_compare_data(ax=axes[i],x=filter_df,
+                                                   xlabel=filter_df.columns[0],
+                                                   ylabel='Evaluation Metrics(%)',
+                                                   title=dataset_name)
+
         # set y-lim to [0,100]
         ax.set_ylim(0,100)
         # set legend
