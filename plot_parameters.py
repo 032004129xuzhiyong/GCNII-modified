@@ -41,10 +41,17 @@ def plot_dataset_to_df(dataset_to_df, layout=None, field_check='val_metric_', sh
         # reset x-axis-data and index
         filter_df.index = df.iloc[:,0]
         filter_df.reset_index(inplace=True)
-        ax = mplot.plot_lines_with_compare_data(ax=axes[i],x=filter_df,
+        # rescale y-axis-data to [0,100]
+        if 'metric' in field_check:
+            filter_df.iloc[:,1:] = filter_df.iloc[:,1:] * 100
+        ax: plt.Axes = mplot.plot_lines_with_compare_data(ax=axes[i],x=filter_df,
                                            xlabel=filter_df.columns[0],
                                            ylabel='Metric',
-                                           title=dataset_name)
+                                           title=dataset_name,
+                                           markevery=4)
+        # set y-lim to [0,100]
+        ax.set_ylim(0,100)
+        # set legend
         ax.legend()
     plt.savefig(f'./parameters/{filter_df.columns[0]}.png')
     if show:
