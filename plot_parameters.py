@@ -24,7 +24,7 @@ def plot_dataset_to_df(dataset_to_df, layout=None, field_check='val_metric_', sh
         layout = (1,num_dataset)
 
     # set figure layout
-    fig, axes = plt.subplots(nrows=layout[0], ncols=layout[1], figsize=(layout[1]*5, layout[0]*5), layout='constrained')
+    fig, axes = plt.subplots(nrows=layout[0], ncols=layout[1], figsize=(layout[1]*5, layout[0]*5))
     if layout[0] == 1 and layout[1] == 1:
         axes = [axes]
     elif layout[0] > 1 and layout[1] > 1:
@@ -46,13 +46,14 @@ def plot_dataset_to_df(dataset_to_df, layout=None, field_check='val_metric_', sh
             filter_df.iloc[:,1:] = filter_df.iloc[:,1:] * 100
         ax: plt.Axes = mplot.plot_lines_with_compare_data(ax=axes[i],x=filter_df,
                                            xlabel=filter_df.columns[0],
-                                           ylabel='Metric',
+                                           ylabel='Evaluation Metrics(%)',
                                            title=dataset_name,
                                            markevery=4)
         # set y-lim to [0,100]
         ax.set_ylim(0,100)
         # set legend
         ax.legend()
+    plt.tight_layout(pad=2, h_pad=5, w_pad=5)
     plt.savefig(f'./parameters/{filter_df.columns[0]}.png')
     if show:
         plt.show()
