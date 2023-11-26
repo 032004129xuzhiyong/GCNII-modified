@@ -530,6 +530,9 @@ def parser_grid_func(args):
                 print('yaml file has more than one hyperparameter to grid search!!')
 
             # tuner
+            yaml_args['dfcallback_args.df_save_path'] = os.path.join('./tables/', tool.get_basename_split_ext(yaml_args['dataset_args']['mat_path']) + '.csv')
+            yaml_args['tbwriter_args.log_dir'] = os.path.join('./logs/', tool.get_basename_split_ext(yaml_args['dataset_args']['mat_path']))
+            yaml_args['earlystop_args.checkpoint_dir'] = os.path.join('./checkpoint/', tool.get_basename_split_ext(yaml_args['dataset_args']['mat_path']))
             yaml_args['tuner_flag'] = True
             parser_grid_search_space = tool.transform_dict_to_search_space(yaml_args.dict())
             args = yaml_args.dict()
