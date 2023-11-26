@@ -455,8 +455,11 @@ def parser_grid_func(args):
                         direction = 'minimize'
                     else:
                         direction = 'maximize'
+                    # change study_name
+                    # because simultaneous search space can be not compatible with separate search space
+                    study_name = 'grid_'+tool.get_basename_split_ext(args['dataset_args']['mat_path']) + '_simultaneously'
                     study = optuna.create_study(direction=direction,
-                                                study_name='grid_'+tool.get_basename_split_ext(args['dataset_args']['mat_path']),
+                                                study_name=study_name,
                                                 storage=optuna.storages.RDBStorage('sqlite:///./tuner.db',
                                                                                    heartbeat_interval=60,
                                                                                    grace_period=120,
