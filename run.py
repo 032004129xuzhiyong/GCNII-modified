@@ -222,6 +222,10 @@ def objective(trial: optuna.trial.Trial, extra_args):
     # train other times and compute mean metric/loss
     mean_logs = train_times_and_get_mean_metric(args, first_logs)
     trial.set_user_attr('mean_logs', mean_logs)
+
+    # set config
+    args.pop('trial')
+    trial.set_user_attr('config',args)
     return mean_logs[args['tuner_monitor']]
 
 
