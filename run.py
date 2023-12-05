@@ -213,19 +213,41 @@ def compute_mean_metric_in_bestdir_for_all_dataset(best_dir):
 
 
 def objective(trial: optuna.trial.Trial, extra_args):
+    """
+    This function is the objective function for the Optuna hyperparameter optimization library.
+    It takes a trial object and a dictionary of extra arguments, modifies the arguments with the trial,
+    runs the model training, and returns the monitored metric.
+
+    Parameters:
+    trial (optuna.trial.Trial): The trial object from the Optuna library.
+    extra_args (dict): A dictionary of extra arguments for the model training.
+
+    Returns:
+    float: The value of the monitored metric for the current trial.
+    """
+
+    # Create a deep copy of the extra arguments to avoid modifying the original dictionary
     args = copy.deepcopy(extra_args)
+
+    # Modify the arguments with the current trial's parameters
     args = tool.modify_dict_with_trial(args, trial)
-    # get first logs
+
+    # Set the trial object and the tuner flag in the arguments
     args['trial'] = trial
     args['tuner_flag'] = True
-    first_logs = train_one_args(args)
-    # train other times and compute mean metric/loss
-    mean_logs = train_times_and_get_mean_metric(args, first_logs)
-    trial.set_user_attr('mean_logs', mean_logs)
 
-    # set config
+    # Run the model training for the first time and get the logs
+    first_logs = train_one_args(args)
+
+    # Run the model training for other times and compute the mean metric/loss
+    mean_logs = train_times_and_get_mean_metric(args, first_logs)
+
+    # Set the mean logs and the configuration as user attributes of the trial
+    trial.set_user_attr('mean_logs', mean_logs)
     args.pop('trial')
     trial.set_user_attr('config',args)
+
+    # Return the value of the monitored metric for the current trial
     return mean_logs[args['tuner_monitor']]
 
 
